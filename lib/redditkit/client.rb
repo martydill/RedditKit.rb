@@ -1,6 +1,7 @@
 require 'faraday'
 require 'redditkit/error'
 require 'redditkit/version'
+require 'redditkit/rate_limit'
 require 'redditkit/client/account'
 require 'redditkit/client/apps'
 require 'redditkit/client/captcha'
@@ -50,6 +51,7 @@ module RedditKit
     attr_accessor :authentication_endpoint
     attr_accessor :user_agent
     attr_accessor :middleware
+    attr_accessor :rate_limit
 
     def initialize(username = nil, password = nil)
       @username = username
@@ -84,6 +86,10 @@ module RedditKit
 
     private
 
+    def rate_limit
+      @rate_limit ||= RedditKit::RateLimit.new
+    end
+    
     def get(path, params = nil)
       request(:get, path, params, connection)
     end
@@ -105,6 +111,8 @@ module RedditKit
     end
 
     def request(method, path, parameters = {}, request_connection)
+      rate_limit.wait
+      
       if signed_in?
         request = authenticated_request_configuration(method, path, parameters)
         request_connection.send(method.to_sym, path, parameters, &request).env
